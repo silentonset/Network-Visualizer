@@ -95,7 +95,7 @@
             color: var(--active); margin-top: 10px;
         }
         
-        /* IP Tab Specifics */
+        /* IP Inputs Specifics */
         input[type="text"] {
             width: 100%; padding: 12px; font-size: 1.2rem; background: #111;
             border: 1px solid #555; color: white; border-radius: 6px;
@@ -108,6 +108,7 @@
         }
         .network-item:last-child { border-bottom: none; }
         .network-item.current { color: var(--active); font-weight: bold; background: #222; padding: 10px 5px; border-radius: 4px;}
+        .offset-label { color: #888; font-size: 0.8rem; min-width: 40px; }
         
         /* IP Classification Badge */
         #ip-class-badge {
@@ -119,14 +120,7 @@
         .status-private { background: #8a6d3b !important; color: #fff !important; }
         .status-reserved { background: var(--danger) !important; color: #fff !important; }
 
-        /* Pagination & Tables */
-        .pagination-controls { display: flex; justify-content: space-between; margin-bottom: 10px; }
-        .btn-page {
-            flex: 1; padding: 12px; background: var(--accent); color: white;
-            border: none; border-radius: 6px; font-weight: bold; cursor: pointer; margin: 0 5px;
-        }
-        .btn-page:disabled { background: #444; color: #888; cursor: not-allowed; }
-        
+        /* Tables */
         table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
         th, td { border: 1px solid #555; padding: 8px; text-align: left; }
         th { background-color: #333; }
@@ -153,7 +147,7 @@
     </div>
     <div class="metrics-grid">
         <div class="result-box">
-            <div class="result-label">CIDR</div>
+            <div class="result-label">Classless Inter-Domain Routing (CIDR)</div>
             <div class="result-value" id="res-cidr">/0</div>
         </div>
         <div class="result-box highlight">
@@ -167,7 +161,7 @@
 <div id="ip-tab" class="tab-content">
     <div class="panel">
         <div class="result-label" style="margin-bottom: 10px;">Enter Host IP Address</div>
-        <input type="text" id="ip-input" placeholder="e.g., 192.168.1.50" inputmode="decimal">
+        <input type="text" id="ip-input-main" placeholder="e.g., 192.168.1.50" inputmode="decimal">
         <div id="ip-class-badge">Enter valid IPv4 Address</div>
         
         <div class="result-label" style="margin-top: 15px; margin-bottom: 10px; text-align: center;">Or configure via binary switches</div>
@@ -185,29 +179,27 @@
     </div>
 </div>
 
-<!-- TAB 3: Global Subnet Table -->
+<!-- TAB 3: Global Subnet Table (Relative Proximity) -->
 <div id="table-tab" class="tab-content">
     <div class="panel">
-        <div class="result-label" style="text-align: center; margin-bottom: 10px;">
-            Viewing /<span id="table-cidr">0</span> Segments
-        </div>
-        <div class="pagination-controls">
-            <button class="btn-page" id="btn-prev" onclick="changePage(-1)">&#8592; Prev 10</button>
-            <button class="btn-page" id="btn-next" onclick="changePage(1)">Next 10 &#8594;</button>
-        </div>
+        <div class="result-label" style="margin-bottom: 10px;">Quick IP Change</div>
+        <input type="text" id="ip-input-subnet" placeholder="e.g., 192.168.1.50" inputmode="decimal">
+    </div>
+
+    <div class="panel">
         <div class="result-label" style="text-align: center; margin-bottom: 15px;">
-            Page <span id="page-current">1</span> of <span id="page-total">1</span>
+            Adjacent /<span id="table-cidr">0</span> Segments (&plusmn;5)
         </div>
         <div class="network-list" id="subnet-table-list">
-            <!-- Populated via mathematical pagination -->
+            <!-- Populated via mathematical proximity -->
         </div>
     </div>
 </div>
 
-<!-- TAB 4: RFC Reference -->
+<!-- TAB 4: Request for Comments (RFC) Reference -->
 <div id="ref-tab" class="tab-content">
     <div class="panel">
-        <div class="result-label" style="margin-bottom: 10px;">IPv4 Special-Purpose Address Registry</div>
+        <div class="result-label" style="margin-bottom: 10px;">Internet Protocol version 4 (IPv4) Special-Purpose Address Registry</div>
         <table>
             <thead>
                 <tr>
@@ -245,9 +237,11 @@
     let ipState = Array(32).fill(false);
     let toastTimeout;
     
-    let currentTablePage = 0;
-    let itemsPerPage = 10;
     let activeSubnetIndex = 0;
+
+    // DOM Elements for synchronized inputs
+    const inputMain = document.getElementById('ip-input-main');
+    const inputSubnet = document.getElementById('ip-input-subnet');
 
     function showToast() {
         const toast = document.getElementById("toast");
@@ -272,8 +266,15 @@
         }
     }
 
-    document.getElementById('ip-input').addEventListener('input', function(e) {
+    function syncInputs(value) {
+        if (inputMain.value !== value) inputMain.value = value;
+        if (inputSubnet.value !== value) inputSubnet.value = value;
+    }
+
+    function handleIpInputEvent(e) {
         const ipStr = e.target.value;
+        syncInputs(ipStr);
+        
         const ipRegex = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
         
         if (ipRegex.test(ipStr)) {
@@ -299,7 +300,10 @@
         } else {
             resetIPMetrics();
         }
-    });
+    }
+
+    inputMain.addEventListener('input', handleIpInputEvent);
+    inputSubnet.addEventListener('input', handleIpInputEvent);
 
     function initUI() {
         generateSwitches('mask-octets-wrapper', 'mask-dip', 'octet-val', enforceContiguousMask, false);
@@ -416,7 +420,9 @@
             document.getElementById(`ip-octet-val-${o}`).innerText = octets[o];
         }
         
-        document.getElementById('ip-input').value = octets.join('.');
+        const newIpString = octets.join('.');
+        syncInputs(newIpString);
+        
         updateIpSwitchVisuals();
         calculateNetwork();
     }
@@ -470,10 +476,12 @@
         const badge = document.getElementById('ip-class-badge');
         badge.innerText = "Enter valid IPv4 Address";
         badge.className = "";
+        document.getElementById('subnet-table-list').innerHTML = "";
     }
 
     function calculateNetwork() {
-        const ipStr = document.getElementById('ip-input').value;
+        // Read from main input as the temporary source of truth since both are synced
+        const ipStr = inputMain.value; 
         const ipRegex = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
         
         if (!ipRegex.test(ipStr)) {
@@ -505,48 +513,39 @@
             document.getElementById('net-last').innerText = floatToIp(broadcastFloat - 1);
         }
 
-        currentTablePage = Math.floor(activeSubnetIndex / itemsPerPage);
-        renderTablePage();
+        renderAdjacentTable();
     }
 
-    function changePage(direction) {
-        currentTablePage += direction;
-        renderTablePage();
-    }
-
-    function renderTablePage() {
+    function renderAdjacentTable() {
         const totalSubnets = Math.pow(2, currentCidr);
-        const totalPages = Math.ceil(totalSubnets / itemsPerPage);
-        
-        if (currentTablePage < 0) currentTablePage = 0;
-        if (currentTablePage >= totalPages) currentTablePage = totalPages - 1;
-
-        document.getElementById('page-current').innerText = (currentTablePage + 1).toLocaleString();
-        document.getElementById('page-total').innerText = totalPages.toLocaleString();
-        
-        document.getElementById('btn-prev').disabled = currentTablePage === 0;
-        document.getElementById('btn-next').disabled = currentTablePage >= totalPages - 1;
-
         const blockSize = Math.pow(2, 32 - currentCidr);
-        const startIndex = currentTablePage * itemsPerPage;
         const listDiv = document.getElementById('subnet-table-list');
         listDiv.innerHTML = "";
 
-        for (let i = 0; i < itemsPerPage; i++) {
-            let targetIndex = startIndex + i;
-            if (targetIndex >= totalSubnets) break;
+        // Reduced from +/- 10 to +/- 5
+        let startIndex = activeSubnetIndex - 5;
+        let endIndex = activeSubnetIndex + 5;
 
-            let netIdFloat = targetIndex * blockSize;
+        if (startIndex < 0) startIndex = 0;
+        if (endIndex >= totalSubnets) endIndex = totalSubnets - 1;
+
+        for (let i = startIndex; i <= endIndex; i++) {
+            let netIdFloat = i * blockSize;
             let bcastFloat = netIdFloat + blockSize - 1;
-            let itemClass = (targetIndex === activeSubnetIndex) ? "network-item current" : "network-item";
+            
+            let itemClass = (i === activeSubnetIndex) ? "network-item current" : "network-item";
             
             let rangeString = (currentCidr === 32) ? 
                 `Host: ${floatToIp(netIdFloat)}` : 
                 `${floatToIp(netIdFloat)} - ${floatToIp(bcastFloat)}`;
 
+            let offsetDisplay = "Current";
+            if (i < activeSubnetIndex) offsetDisplay = `-${activeSubnetIndex - i}`;
+            if (i > activeSubnetIndex) offsetDisplay = `+${i - activeSubnetIndex}`;
+
             listDiv.innerHTML += `
                 <div class="${itemClass}">
-                    <span>${targetIndex.toLocaleString()}</span>
+                    <span class="offset-label">${offsetDisplay}</span>
                     <span>${rangeString}</span>
                 </div>
             `;

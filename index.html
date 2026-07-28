@@ -7,6 +7,7 @@
     <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="icon-192.png">
     <style>
         :root {
             --bg: #1e1e1e;
@@ -191,8 +192,8 @@
             Viewing /<span id="table-cidr">0</span> Segments
         </div>
         <div class="pagination-controls">
-            <button class="btn-page" id="btn-prev" onclick="changePage(-1)">&#8592; Prev 50</button>
-            <button class="btn-page" id="btn-next" onclick="changePage(1)">Next 50 &#8594;</button>
+            <button class="btn-page" id="btn-prev" onclick="changePage(-1)">&#8592; Prev 10</button>
+            <button class="btn-page" id="btn-next" onclick="changePage(1)">Next 10 &#8594;</button>
         </div>
         <div class="result-label" style="text-align: center; margin-bottom: 15px;">
             Page <span id="page-current">1</span> of <span id="page-total">1</span>
@@ -245,7 +246,7 @@
     let toastTimeout;
     
     let currentTablePage = 0;
-    let itemsPerPage = 50;
+    let itemsPerPage = 10;
     let activeSubnetIndex = 0;
 
     function showToast() {
@@ -482,7 +483,6 @@
 
         const ipFloat = ipToFloat(ipStr);
         
-        // Update Classification Badge
         const classification = classifyIP(ipFloat);
         const badge = document.getElementById('ip-class-badge');
         badge.innerText = classification.text;
